@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pokémon Builder - Authentic iSwitch</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ピル型統合ヘッダー -->
+  <div id="header-container">
+    <header id="main-header">
+      <button id="btn-home" class="header-icon">🏠</button>
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="ポケモンを追加 (検索)..." autocomplete="off">
+        <div id="search-dropdown" class="hidden">
+          <div id="search-results"></div>
+        </div>
+      </div>
+      <button id="btn-cart" class="header-icon">💻</button>
+    </header>
+  </div>
+
+  <main class="container main-layout">
+    
+    <!-- 左パネル: ポケモン詳細 -->
+    <section id="detail-panel">
+      <div class="card detail-card">
+        <div class="detail-header-row">
+          <div class="sprite-box">
+            <img id="detail-img" src="" alt="">
+          </div>
+          <div class="name-area">
+            <h2 id="detail-name-jpn">---</h2>
+            <div class="toggle-row">
+              <span id="detail-gender" class="tag tag-blue">♂ オス</span>
+              <div class="toggle-btn" id="toggle-shiny">
+                <span class="icon">✨</span> 色違い
+              </div>
+              <div class="toggle-btn" id="toggle-egg">
+                <span class="icon">🥚</span> タマゴ
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="param-list">
+          <div class="param-item" data-param="level">
+            <span class="label">レベル</span>
+            <span class="value"><span id="val-level">1</span> <span class="arrow">›</span></span>
+          </div>
+          <div class="param-item" data-param="size">
+            <span class="label">サイズ</span>
+            <span class="value"><span id="val-size">128</span> <span class="arrow">›</span></span>
+          </div>
+          <div class="param-item" data-param="tera">
+            <span class="label">テラスタイプ</span>
+            <span class="value"><span id="val-tera">---</span> <span class="arrow">›</span></span>
+          </div>
+          <div class="param-item" data-param="ability">
+            <span class="label">とくせい</span>
+            <span class="value"><span id="val-ability">---</span> <span class="arrow">›</span></span>
+          </div>
+          <div class="param-item" data-param="nature">
+            <span class="label">性格</span>
+            <span class="value"><span id="val-nature">---</span> <span class="arrow">›</span></span>
+          </div>
+          <div class="param-item" data-param="language">
+            <span class="label">言語</span>
+            <span class="value"><span id="val-lang">JPN</span> <span class="arrow">›</span></span>
+          </div>
+          <div class="param-item" data-param="item">
+            <span class="label">持ち物</span>
+            <span class="value"><span id="val-item">なし</span> <span class="arrow">›</span></span>
+          </div>
+          <div class="param-item" data-param="ball">
+            <span class="label">ボール</span>
+            <span class="value"><span id="val-ball">---</span> <span class="arrow">›</span></span>
+          </div>
+          <!-- 技セクション -->
+          <div class="param-item move-item" data-param="move1">
+            <span class="label">技</span>
+            <span class="value"><span id="val-move1">---</span> <span class="arrow">›</span></span>
+          </div>
+          <div class="param-item move-item" data-param="move2">
+            <span class="label"></span>
+            <span class="value"><span id="val-move2">---</span> <span class="arrow">›</span></span>
+          </div>
+          <div class="param-item move-item" data-param="move3">
+            <span class="label"></span>
+            <span class="value"><span id="val-move3">---</span> <span class="arrow">›</span></span>
+          </div>
+          <div class="param-item move-item" data-param="move4">
+            <span class="label"></span>
+            <span class="value"><span id="val-move4">---</span> <span class="arrow">›</span></span>
+          </div>
+        </div>
+
+        <!-- 能力値テーブル -->
+        <div class="stats-section">
+          <div class="stats-header">
+            <span>能力値</span>
+            <span>IV</span>
+            <span>EV</span>
+          </div>
+          <div class="stat-grid">
+            <div class="stat-row">
+              <span class="s-label">HP</span>
+              <input type="number" id="iv-hp" class="s-input iv" value="31" min="0" max="31">
+              <input type="number" id="ev-hp" class="s-input ev" value="0" min="0" max="252">
+            </div>
+            <div class="stat-row">
+              <span class="s-label">攻撃</span>
+              <input type="number" id="iv-atk" class="s-input iv" value="31" min="0" max="31">
+              <input type="number" id="ev-atk" class="s-input ev" value="0" min="0" max="252">
+            </div>
+            <div class="stat-row">
+              <span class="s-label">防御</span>
+              <input type="number" id="iv-def" class="s-input iv" value="31" min="0" max="31">
+              <input type="number" id="ev-def" class="s-input ev" value="0" min="0" max="252">
+            </div>
+            <div class="stat-row">
+              <span class="s-label">特攻</span>
+              <input type="number" id="iv-spa" class="s-input iv" value="31" min="0" max="31">
+              <input type="number" id="ev-spa" class="s-input ev" value="0" min="0" max="252">
+            </div>
+            <div class="stat-row">
+              <span class="s-label">特防</span>
+              <input type="number" id="iv-spd" class="s-input iv" value="31" min="0" max="31">
+              <input type="number" id="ev-spd" class="s-input ev" value="0" min="0" max="252">
+            </div>
+            <div class="stat-row">
+              <span class="s-label">素早さ</span>
+              <input type="number" id="iv-spe" class="s-input iv" value="31" min="0" max="31">
+              <input type="number" id="ev-spe" class="s-input ev" value="0" min="0" max="252">
+            </div>
+          </div>
+          <div class="stats-footer">
+            合計 <span id="ev-total">0</span> / 510 ・ 残り <span id="ev-remain">510</span>
+          </div>
+        </div>
+
+        <div class="add-action">
+          <button id="btn-add-box" class="pill-btn primary">ボックスに追加</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 右パネル: ボックス -->
+    <section id="box-panel">
+      <div class="card box-card">
+        <div class="box-header">
+          <div class="box-tabs">
+            <span class="tab active">ボックス</span>
+          </div>
+          <button id="btn-clear-box" class="clear-btn">クリア</button>
+        </div>
+        <div id="box-list">
+          <p class="empty-msg">ボックスにポケモンがいません</p>
+        </div>
+        <div class="box-footer">
+          <button id="btn-submit-box" class="pill-btn secondary" disabled>URLでボックスを共有</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ピッカー -->
+  <div id="picker-overlay" class="hidden">
+    <div id="picker-sheet">
+      <div class="sheet-header">
+        <h3 id="picker-title">選択</h3>
+        <button id="close-picker">✕</button>
+      </div>
+      <div id="picker-search-container" class="picker-search-box hidden">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="picker-search-input" placeholder="道具を検索" autocomplete="off">
+      </div>
+      <div id="picker-items"></div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20260427_3"></script>
+</body>
+</html>
