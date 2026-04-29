@@ -653,7 +653,17 @@ async function getAbilityJpn(id) {
 
 async function init() {
   try {
+    // 1. ニャオハを最優先で即時表示（API待ちをしない）
+    const sprigatitoFallback = {
+      id: 906, species: 906, jpn: 'ニャオハ', eng: 'Sprigatito',
+      ability_a: 'overgrow', ability_h: 'protean', gender_rate: 1, moves: 'scratch,tail-whip', balls: '1'
+    };
+    selectPokemon(sprigatitoFallback);
+
+    // 2. 非同期でデータを読み込み（キャッシュがあれば一瞬）
     await loadData();
+    
+    // 3. 読み込み完了後にデータを再反映
     if (allPokemon && allPokemon.length > 0) {
       const sprigatito = allPokemon.find(p => p.species == 906) || allPokemon[0];
       selectPokemon(sprigatito);
@@ -713,23 +723,39 @@ function initToggles() {
 
 async function loadData() {
   const pUrl = 'https://iswitch.app/api/collections/pokemon_view/records?filter=version%3D%27sv%27&perPage=2000&sort=species';
-  
+  const CACHE_KEY = 'pokemon_data_sv_v2';
+  const CACHE_TIME_KEY = 'pokemon_data_sv_time';
+  const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24時間
+
   try {
-    const pRes = await fetch(pUrl).catch(() => ({ok: false}));
+    let pData = null;
+    const cached = localStorage.getItem(CACHE_KEY);
+    const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
+
+    // キャッシュが有効ならそれを使用
+    if (cached && cachedTime && (Date.now() - parseInt(cachedTime) < CACHE_DURATION)) {
+      pData = JSON.parse(cached);
+    } else {
+      const pRes = await fetch(pUrl).catch(() => ({ok: false}));
+      if (pRes && pRes.ok) {
+        pData = await pRes.json();
+        localStorage.setItem(CACHE_KEY, JSON.stringify(pData));
+        localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+      }
+    }
     
-    if (pRes && pRes.ok) {
-      const pData = await pRes.json();
+    if (pData) {
       const seenKeys = new Set();
+      // 重複排除リストを Set にして高速化
+      const DEDUPE_SET = new Set([25, 250, 254, 257, 260, 3, 373, 376, 384, 386, 389, 392, 395, 398, 445, 483, 484, 489, 490, 493, 497, 500, 503, 571, 639, 1005, 53, 144, 145, 146, 380, 381, 382, 383, 1006, 133, 149, 150, 151, 154, 157, 160, 243, 244, 245, 248, 249, 998, 991, 994, 977, 982, 908, 911, 914, 916, 9, 896, 897, 905, 893, 6, 233, 638, 640, 641, 642, 643, 644, 645, 646, 128, 925, 888, 889, 890, 892, 876, 652, 655, 658, 724, 727, 730, 812, 815, 818, 719, 648, 647]);
+
       allPokemon = (pData.items || []).filter(p => {
         const s = parseInt(p.species);
         if (isNaN(s)) return false;
         if (s === 999 && p.form_type === 'roaming') return false;
         
-        // 重複排除リスト
-        const dedupeList = [25, 250, 254, 257, 260, 3, 373, 376, 384, 386, 389, 392, 395, 398, 445, 483, 484, 489, 490, 493, 497, 500, 503, 571, 639, 1005, 53, 144, 145, 146, 380, 381, 382, 383, 1006, 133, 149, 150, 151, 154, 157, 160, 243, 244, 245, 248, 249, 998, 991, 994, 977, 982, 908, 911, 914, 916, 9, 896, 897, 905, 893, 6, 233, 638, 640, 641, 642, 643, 644, 645, 646, 128, 925, 888, 889, 890, 892, 876, 652, 655, 658, 724, 727, 730, 812, 815, 818, 719, 648, 647];
-        if (dedupeList.includes(s)) {
+        if (DEDUPE_SET.has(s)) {
           if (s === 25) {
-            // ピカチュウ: 無印とキャップのみ
             const f = String(p.form || '0');
             const ft = String(p.form_type || '').toLowerCase();
             const isCap = ft.includes('cap') || ft.includes('world') || ft.includes('partner') || (parseInt(f) >= 1 && parseInt(f) <= 10);
@@ -738,26 +764,22 @@ async function loadData() {
             if (seenKeys.has(key)) return false;
             seenKeys.add(key);
           } else if (s === 493 || s === 647 || s === 648) {
-            // アルセウス・ケルディオ・メロエッタ: 通常と配布を分離
             const isEvent = p.balls && p.balls.includes(16);
             let key = `${s}-${isEvent ? 'event' : 'base'}`;
             if (seenKeys.has(key)) return false;
             seenKeys.add(key);
             if (isEvent) p.is_event = true;
           } else if (s === 386) {
-            // デオキシス: 無印のみ
             const ft = String(p.form_type || '').toLowerCase();
             if (ft !== '' && ft !== 'normal' && ft !== 'default') return false;
             if (seenKeys.has(`${s}`)) return false;
             seenKeys.add(`${s}`);
           } else if ([641, 642, 645].includes(s)) {
-            // トルネロス・ランドロス・ボルトロス: れいじゅうのみ
             const ft = String(p.form_type || '').toLowerCase();
             if (!ft.includes('therian')) return false;
             if (seenKeys.has(`${s}`)) return false;
             seenKeys.add(`${s}`);
           } else if (s === 905) {
-            // ラブトロス: れいじゅう削除、ケシインは複数(通常/配布)を許容
             const ft = String(p.form_type || '').toLowerCase();
             if (ft.includes('therian')) return false;
             const isEvent = p.balls && p.balls.includes(16);
@@ -765,17 +787,14 @@ async function loadData() {
             if (seenKeys.has(key)) return false;
             seenKeys.add(key);
           } else if (s === 892) {
-            // ウーラオス: いちげき と れんげき
             const f = String(p.form || '0');
             if (seenKeys.has(`${s}-${f}`)) return false;
             seenKeys.add(`${s}-${f}`);
           } else if ([876, 724, 658].includes(s)) {
-            // イエッサン, ジュナイパー, ゲッコウガ: フォームごとに1つずつ
             const f = String(p.form || '0');
             if (seenKeys.has(`${s}-${f}`)) return false;
             seenKeys.add(`${s}-${f}`);
           } else if ([6, 233, 638, 640, 643, 644, 646, 888, 889, 890, 652, 655, 727, 730, 812, 815, 818].includes(s)) {
-            // リザードン, ポリゴン2, コバルオン, ビリジオン, レシラム, ゼクロム, キュレム, ザシアン, ザマゼンタ, ムゲンダイナ: 1つのみ
             if (seenKeys.has(`${s}`)) return false;
             seenKeys.add(`${s}`);
           } else {
@@ -790,9 +809,7 @@ async function loadData() {
         if (s === 386) { p.jpn = 'デオキシス'; p.eng = 'Deoxys'; }
         if (s === 893) { p.jpn = 'ザルード'; }
         if (s === 916) { p.jpn = (String(p.form) === '1' || (p.form_type||'').includes('female')) ? 'パフュートン♀' : 'パフュートン♂'; }
-        if (s === 905) {
-          p.jpn = 'ラブトロス';
-        }
+        if (s === 905) { p.jpn = 'ラブトロス'; }
         if (s === 489) { p.jpn = 'フィオネ'; }
         if (s === 901) { p.jpn = String(p.form) === '1' ? 'ガチグマ(アカツキ)' : 'ガチグマ'; }
         if (s === 385 || s === 490) { p.is_event = true; }
@@ -800,33 +817,29 @@ async function loadData() {
       });
 
       // 特定の伝説・準伝説の2番目のデータを「配布個体」としてフラグ立て
-      const eventSpecies = [1001, 1002, 1003, 1004, 1007, 1008, 791, 792, 800];
+      const EVENT_SPECIES_SET = new Set([1001, 1002, 1003, 1004, 1007, 1008, 791, 792, 800]);
       const speciesCount = {};
       const extraBirds = [];
 
       allPokemon.forEach(p => {
         const s = parseInt(p.species);
-        if (eventSpecies.includes(s)) {
+        if (EVENT_SPECIES_SET.has(s)) {
           speciesCount[s] = (speciesCount[s] || 0) + 1;
           if (speciesCount[s] >= 2) p.is_event = true;
         }
-        // イッカネズミ (925) の3びきかぞくデータ修正
         if (s === 925 && String(p.form) === '1') {
           p.id = 10257;
           p.form_type = 'family-of-three';
         }
-        // ラブトロス配布個体の判定 (プレシャスボール ID:16)
         if (s === 905 && p.balls && p.balls.includes(16)) {
           p.is_event = true;
         }
-        // 三鳥の配布個体を動的に生成
         if ((s === 144 || s === 145 || s === 146) && p.form_type === 'galar') {
           const eventBird = JSON.parse(JSON.stringify(p));
           eventBird.is_event = true;
-          eventBird.id = p.id + '-event'; // 一意のIDを付与
+          eventBird.id = p.id + '-event';
           extraBirds.push(eventBird);
         }
-        // ザシアン・ザマゼンタ・ムゲンダイナの配布個体を動的に生成
         if (s === 888 || s === 889 || s === 890) {
           const eventPoke = JSON.parse(JSON.stringify(p));
           eventPoke.is_event = true;
@@ -835,7 +848,6 @@ async function loadData() {
         }
       });
       
-      // アルセウス, ケルディオ, メロエッタの配布個体が無い場合に動的生成
       [493, 647, 648].forEach(s => {
         if (!allPokemon.some(p => parseInt(p.species) === s && p.is_event)) {
           const base = allPokemon.find(p => parseInt(p.species) === s);
@@ -948,6 +960,7 @@ function renderSearch(list) {
 
 async function selectPokemon(p) {
   if (!p) return;
+  const fType = String(p.form_type || '').toLowerCase();
   currentPokemon = p;
   editingIndex = null;
   const addBtn = document.getElementById('btn-add-box');
@@ -1022,7 +1035,6 @@ async function selectPokemon(p) {
   }
 
   // フォルムに応じた持ち物の自動セット
-  const fType = String(p.form_type || '').toLowerCase();
   if (sId === 1017) { // オーガポン
     if (fType === 'wellspring') currentParams.item = 'wellspring-mask';
     else if (fType === 'hearthflame') currentParams.item = 'hearthflame-mask';
@@ -1463,7 +1475,12 @@ if (closeBtn) closeBtn.onclick = () => { document.getElementById('picker-overlay
 
 function renderBox() {
   const boxArea = document.getElementById('box-list');
+  const countEl = document.getElementById('box-count');
   if (!boxArea) return;
+
+  if (countEl) {
+    countEl.textContent = boxList.length > 0 ? `(${boxList.length})` : '';
+  }
   
   const submitBtn = document.getElementById('btn-submit-box');
   if (submitBtn) {
@@ -1489,12 +1506,13 @@ function renderBox() {
     const isShiny = p.shiny || p.is_event;
     const spriteUrl = getSpriteUrl(p, p.shiny);
     const fallbackUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${isShiny ? 'shiny/' : ''}${p.species}.png`;
+    const levelText = p.params.level === 1 ? '未育成' : `Lv. ${p.params.level}`;
     html += `
       <div class="box-item ${editingIndex === i ? 'editing' : ''}" onclick="editPokemon(${i})">
         <img src="${spriteUrl}" onerror="this.onerror=null; this.src='${fallbackUrl}';">
         <div class="b-info">
           <div class="b-name">${p.displayName}</div>
-          <div class="b-details">Lv. ${p.params.level}</div>
+          <div class="b-details">${levelText}</div>
         </div>
         <button class="box-quick-delete" onclick="event.stopPropagation(); deletePokemon(${i});" title="削除">×</button>
       </div>
