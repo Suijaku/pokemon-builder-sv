@@ -524,3 +524,55 @@ body {
   text-decoration: line-through;
   color: #94a3b8;
 }
+
+/* --- Share Result UI --- */
+#share-result-container {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.share-box {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+#share-url-display {
+  flex: 1;
+  height: 36px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 0.85rem;
+  background: white;
+  color: #475569;
+  outline: none;
+}
+
+.copy-action-btn {
+  height: 36px;
+  padding: 0 16px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.copy-action-btn:hover { background: #2563eb; }
+.copy-action-btn.success { background: #10b981; }
+
+.share-hint {
+  font-size: 0.75rem;
+  color: #64748b;
+  text-align: center;
+}

@@ -1551,6 +1551,8 @@ function deletePokemon(index) {
       editingIndex--;
     }
     renderBox();
+    const resultContainer = document.getElementById('share-result-container');
+    if (resultContainer) resultContainer.classList.add('hidden');
   }
 }
 
@@ -1583,6 +1585,8 @@ if (addBoxBtn) {
     renderBox();
     editingIndex = null;
     addBoxBtn.textContent = 'ボックスに追加';
+    const resultContainer = document.getElementById('share-result-container');
+    if (resultContainer) resultContainer.classList.add('hidden');
   };
 }
 
@@ -1596,6 +1600,8 @@ if (clearBoxBtn) {
       const addBtn = document.getElementById('btn-add-box');
       if (addBtn) addBtn.textContent = 'ボックスに追加';
       renderBox();
+      const resultContainer = document.getElementById('share-result-container');
+      if (resultContainer) resultContainer.classList.add('hidden');
     }
   };
 }
@@ -1644,23 +1650,47 @@ if (submitBoxBtn) {
       }
       const gistData = await res.json();
       
-      // 理想の形式に近いURLを生成 (?id=SV-数-GistID)
       const count = boxList.length;
       const shareUrl = window.location.origin + window.location.pathname + `?id=SV-${count}-${gistData.id}`;
       
-      // クリップボードにコピー
-      await navigator.clipboard.writeText(shareUrl);
-      alert('短縮共有URLをコピーしました！\n理想の形式で保存されました。');
+      // UIに反映（自動コピーはせずにボックスを表示）
+      const resultContainer = document.getElementById('share-result-container');
+      const urlDisplay = document.getElementById('share-url-display');
+      if (resultContainer && urlDisplay) {
+        urlDisplay.value = shareUrl;
+        resultContainer.classList.remove('hidden');
+        resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
       
     } catch (err) {
       console.error('Sharing error:', err);
-      // エラー内容を詳しく通知
-      const fallbackUrl = exportBoxToUrl();
-      alert(`保存に失敗しました：\n${err.message}\n\n代わりに従来の長いURLを生成します。`);
-      prompt('以下のURLをコピーして共有してください：', fallbackUrl);
+      alert(`保存に失敗しました：\n${err.message}\n通信環境を確認してもう一度お試しください。`);
     } finally {
       submitBoxBtn.disabled = false;
       submitBoxBtn.textContent = originalText;
+    }
+  };
+}
+
+const copyShareBtn = document.getElementById('btn-copy-share');
+if (copyShareBtn) {
+  copyShareBtn.onclick = () => {
+    const urlDisplay = document.getElementById('share-url-display');
+    if (urlDisplay && urlDisplay.value) {
+      navigator.clipboard.writeText(urlDisplay.value).then(() => {
+        const originalText = copyShareBtn.textContent;
+        copyShareBtn.textContent = '完了！';
+        copyShareBtn.classList.add('success');
+        setTimeout(() => {
+          copyShareBtn.textContent = originalText;
+          copyShareBtn.classList.remove('success');
+        }, 2000);
+      }).catch(err => {
+        // フォールバック: 全選択してユーザーに手動コピーを促す
+        urlDisplay.select();
+        urlDisplay.setSelectionRange(0, 99999);
+        alert('コピーに失敗しました。ボックス内のURLを手動でコピーしてください。');
+      });
     }
   };
 }
