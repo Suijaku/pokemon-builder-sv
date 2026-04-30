@@ -1627,7 +1627,8 @@ if (submitBoxBtn) {
       const res = await fetch(GIST_API_URL, {
         method: 'POST',
         headers: {
-          'Authorization': `token ${GITHUB_TOKEN}`,
+          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github+json',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -1637,20 +1638,26 @@ if (submitBoxBtn) {
         })
       });
 
-      if (!res.ok) throw new Error('GitHub API Error');
+      if (!res.ok) {
+        const errorDetail = await res.json().catch(() => ({ message: res.statusText }));
+        throw new Error(`GitHub API Error (${res.status}): ${errorDetail.message}`);
+      }
       const gistData = await res.json();
       
-      const shareUrl = window.location.origin + window.location.pathname + "?gist=" + gistData.id;
+      // 理想の形式に近いURLを生成 (?id=SV-数-GistID)
+      const count = boxList.length;
+      const shareUrl = window.location.origin + window.location.pathname + `?id=SV-${count}-${gistData.id}`;
       
       // クリップボードにコピー
       await navigator.clipboard.writeText(shareUrl);
-      alert('短縮共有URLをコピーしました！\nどの端末からでもこのURLでボックスを復元できます。');
+      alert('短縮共有URLをコピーしました！\n理想の形式で保存されました。');
       
     } catch (err) {
       console.error('Sharing error:', err);
-      // Gistが失敗した場合は従来の長いURLをフォールバックとして生成
+      // エラー内容を詳しく通知
       const fallbackUrl = exportBoxToUrl();
-      prompt('保存に失敗したため、従来の長いURLを生成しました。こちらをコピーしてください：', fallbackUrl);
+      alert(`保存に失敗しました：\n${err.message}\n\n代わりに従来の長いURLを生成します。`);
+      prompt('以下のURLをコピーして共有してください：', fallbackUrl);
     } finally {
       submitBoxBtn.disabled = false;
       submitBoxBtn.textContent = originalText;
@@ -1699,22 +1706,33 @@ function exportBoxToUrl() {
 
 async function importBoxFromUrl() {
   const params = new URLSearchParams(window.location.search);
-  const gistId = params.get('gist');
+  const gistIdParam = params.get('gist'); // 互換性のため
+  const idParam = params.get('id'); // SV-数-ID 形式
   const base64 = params.get('box');
   
-  if (!gistId && !base64) return;
+  if (!idParam && !gistIdParam && !base64) return;
   
   try {
     let json = '';
+    let gistId = gistIdParam;
+    
+    if (idParam && idParam.startsWith('SV-')) {
+      const parts = idParam.split('-');
+      if (parts.length >= 3) gistId = parts[2];
+    }
+
     if (gistId) {
       // Gistから取得
       const res = await fetch(`${GIST_API_URL}/${gistId}`, {
-        headers: { 'Authorization': `token ${GITHUB_TOKEN}` }
+        headers: { 
+          'Authorization': `Bearer ${GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github+json'
+        }
       });
-      if (!res.ok) throw new Error('Gist not found');
+      if (!res.ok) throw new Error('Gist data not found or expired');
       const gistData = await res.json();
       json = gistData.files["box.json"].content;
-    } else {
+    } else if (base64) {
       // 従来のBase64から復元
       json = decodeURIComponent(escape(atob(base64)));
     }
