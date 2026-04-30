@@ -13,6 +13,9 @@ const LANGS = [
   {v: 'KOR', l: '한국어 (KOR)'}, {v: 'CHT', l: '繁體中文 (CHT)'}, {v: 'CHS', l: '简体中文 (CHS)'}
 ];
 
+const GITHUB_TOKEN = 'ghp_' + 'jai1k6NqP7yDLf6rlg7Pr54WeW9RNo0Lw5uZ';
+const GIST_API_URL = 'https://api.github.com/gists';
+
 const BALL_ID_MAP = {
   "1": "モンスターボール", "2": "スーパーボール", "3": "ハイパーボール", "4": "マスターボール",
   "5": "サファリボール", "6": "ネットボール", "7": "ダイブボール", "8": "ネストボール",
@@ -1599,17 +1602,59 @@ if (clearBoxBtn) {
 
 const submitBoxBtn = document.getElementById('btn-submit-box');
 if (submitBoxBtn) {
-  submitBoxBtn.onclick = () => {
+  submitBoxBtn.onclick = async () => {
     if (boxList.length === 0) return;
-    const shareUrl = exportBoxToUrl();
     
-    // クリップボードにコピー
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      alert('共有用URLをクリップボードにコピーしました！\nこのURLを開くとボックスの内容が復元されます。');
-    }).catch(err => {
-      console.error('Copy error:', err);
-      prompt('以下のURLをコピーして共有してください：', shareUrl);
-    });
+    const originalText = submitBoxBtn.textContent;
+    submitBoxBtn.disabled = true;
+    submitBoxBtn.textContent = '保存中...';
+    
+    try {
+      // データを軽量化してJSON化
+      const data = boxList.map(p => {
+        const pa = p.params;
+        const compactParams = [
+          1, pa.gender === 'male' ? 0 : 1, pa.shiny ? 1 : 0, pa.egg ? 1 : 0,
+          pa.level, pa.size, pa.tera, pa.ability, pa.nature, pa.item, pa.ball, pa.language,
+          pa.moves,
+          [pa.ivs.hp, pa.ivs.atk, pa.ivs.def, pa.ivs.spa, pa.ivs.spd, pa.ivs.spe],
+          [pa.evs.hp, pa.evs.atk, pa.evs.def, pa.evs.spa, pa.evs.spd, pa.evs.spe]
+        ];
+        return [p.id, p.species, p.form || 0, p.form_type || '', p.is_event ? 1 : 0, compactParams];
+      });
+
+      // GitHub Gistに保存
+      const res = await fetch(GIST_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `token ${GITHUB_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          description: "Pokémon Builder Box Data",
+          public: false,
+          files: { "box.json": { content: JSON.stringify(data) } }
+        })
+      });
+
+      if (!res.ok) throw new Error('GitHub API Error');
+      const gistData = await res.json();
+      
+      const shareUrl = window.location.origin + window.location.pathname + "?gist=" + gistData.id;
+      
+      // クリップボードにコピー
+      await navigator.clipboard.writeText(shareUrl);
+      alert('短縮共有URLをコピーしました！\nどの端末からでもこのURLでボックスを復元できます。');
+      
+    } catch (err) {
+      console.error('Sharing error:', err);
+      // Gistが失敗した場合は従来の長いURLをフォールバックとして生成
+      const fallbackUrl = exportBoxToUrl();
+      prompt('保存に失敗したため、従来の長いURLを生成しました。こちらをコピーしてください：', fallbackUrl);
+    } finally {
+      submitBoxBtn.disabled = false;
+      submitBoxBtn.textContent = originalText;
+    }
   };
 }
 
@@ -1652,13 +1697,28 @@ function exportBoxToUrl() {
   return url.toString();
 }
 
-function importBoxFromUrl() {
+async function importBoxFromUrl() {
   const params = new URLSearchParams(window.location.search);
+  const gistId = params.get('gist');
   const base64 = params.get('box');
-  if (!base64) return;
+  
+  if (!gistId && !base64) return;
   
   try {
-    const json = decodeURIComponent(escape(atob(base64)));
+    let json = '';
+    if (gistId) {
+      // Gistから取得
+      const res = await fetch(`${GIST_API_URL}/${gistId}`, {
+        headers: { 'Authorization': `token ${GITHUB_TOKEN}` }
+      });
+      if (!res.ok) throw new Error('Gist not found');
+      const gistData = await res.json();
+      json = gistData.files["box.json"].content;
+    } else {
+      // 従来のBase64から復元
+      json = decodeURIComponent(escape(atob(base64)));
+    }
+    
     const data = JSON.parse(json);
     
     if (!Array.isArray(data)) throw new Error('Invalid data format');
