@@ -668,10 +668,22 @@ async function init() {
       const sprigatito = allPokemon.find(p => p.species == 906) || allPokemon[0];
       selectPokemon(sprigatito);
     }
+    renderBox();
+    importBoxFromUrl();
+    
+    // URLからのインポートがない場合、localStorageから復元
+    if (boxList.length === 0) {
+      const saved = localStorage.getItem('box_list_data');
+      if (saved) {
+        try {
+          boxList = JSON.parse(saved);
+          renderBox();
+        } catch(e) { console.error('LocalStorage Load Error:', e); }
+      }
+    }
   } catch (e) { console.error('Init error:', e); }
   initStatInputs();
   initToggles();
-  importBoxFromUrl();
 }
 
 function initToggles() {
@@ -1482,6 +1494,9 @@ function renderBox() {
     countEl.textContent = boxList.length > 0 ? `(${boxList.length})` : '';
   }
   
+  // localStorageに保存
+  localStorage.setItem('box_list_data', JSON.stringify(boxList));
+  
   const submitBtn = document.getElementById('btn-submit-box');
   if (submitBtn) {
     const isEmpty = boxList.length === 0;
@@ -1599,17 +1614,37 @@ if (submitBoxBtn) {
 }
 
 function exportBoxToUrl() {
-  // データを軽量化してエンコード
-  const data = boxList.map(p => ({
-    i: p.id,
-    s: p.species,
-    f: p.form,
-    ft: p.form_type,
-    ev: p.is_event,
-    sh: p.shiny,
-    dn: p.displayName,
-    pa: p.params
-  }));
+  // データを極限まで軽量化 (配列形式にしてキーを削減)
+  const data = boxList.map(p => {
+    const pa = p.params;
+    // paramsを配列に変換 [v, gender, shiny, egg, level, size, tera, ability, nature, item, ball, lang, [moves], [ivs], [evs]]
+    const compactParams = [
+      1, // version
+      pa.gender === 'male' ? 0 : 1,
+      pa.shiny ? 1 : 0,
+      pa.egg ? 1 : 0,
+      pa.level,
+      pa.size,
+      pa.tera,
+      pa.ability,
+      pa.nature,
+      pa.item,
+      pa.ball,
+      pa.language,
+      pa.moves,
+      [pa.ivs.hp, pa.ivs.atk, pa.ivs.def, pa.ivs.spa, pa.ivs.spd, pa.ivs.spe],
+      [pa.evs.hp, pa.evs.atk, pa.evs.def, pa.evs.spa, pa.evs.spd, pa.evs.spe]
+    ];
+    return [
+      p.id,
+      p.species,
+      p.form || 0,
+      p.form_type || '',
+      p.is_event ? 1 : 0,
+      compactParams
+    ];
+  });
+  
   const json = JSON.stringify(data);
   const base64 = btoa(unescape(encodeURIComponent(json)));
   const url = new URL(window.location.href);
@@ -1621,26 +1656,63 @@ function importBoxFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const base64 = params.get('box');
   if (!base64) return;
+  
   try {
     const json = decodeURIComponent(escape(atob(base64)));
     const data = JSON.parse(json);
-    boxList = data.map(d => ({
-      id: d.i,
-      species: d.s,
-      form: d.f,
-      form_type: d.ft,
-      is_event: d.ev,
-      shiny: d.sh,
-      displayName: d.dn,
-      params: d.pa
-    }));
+    
+    if (!Array.isArray(data)) throw new Error('Invalid data format');
+    
+    boxList = data.map(d => {
+      // 旧フォーマット (オブジェクト) か新フォーマット (配列) かを判定
+      if (!Array.isArray(d)) {
+        return {
+          id: d.i, species: d.s, form: d.f, form_type: d.ft,
+          is_event: d.ev, shiny: d.sh, displayName: d.dn, params: d.pa
+        };
+      }
+      
+      // 新フォーマット (配列) のパース
+      const [id, species, form, form_type, is_event, cp] = d;
+      const pa = {
+        gender: cp[1] === 0 ? 'male' : 'female',
+        shiny: cp[2] === 1,
+        egg: cp[3] === 1,
+        level: cp[4],
+        size: cp[5],
+        tera: cp[6],
+        ability: cp[7],
+        nature: cp[8],
+        item: cp[9],
+        ball: cp[10],
+        language: cp[11],
+        moves: cp[12],
+        ivs: { hp: cp[13][0], atk: cp[13][1], def: cp[13][2], spa: cp[13][3], spd: cp[13][4], spe: cp[13][5] },
+        evs: { hp: cp[14][0], atk: cp[14][1], def: cp[14][2], spa: cp[14][3], spd: cp[14][4], spe: cp[14][5] }
+      };
+      
+      const pokemon = allPokemon.find(x => String(x.id) === String(id));
+      const displayName = pokemon ? `${pokemon.jpn} ${getFormLabel(pokemon)}` : 'Unknown';
+      
+      return {
+        id, species, form, form_type,
+        is_event: is_event === 1,
+        shiny: pa.shiny,
+        displayName,
+        params: pa
+      };
+    });
+    
     renderBox();
     
     // URLからパラメータを削除（リロード時に重複しないよう）
     const newUrl = window.location.origin + window.location.pathname;
     window.history.replaceState({}, document.title, newUrl);
+    
+    alert('ボックスの内容をURLから復元しました。');
   } catch (e) {
     console.error('URL Import Error:', e);
+    alert('URLからの読み込みに失敗しました。URLが途中で切れている可能性があります。');
   }
 }
 
