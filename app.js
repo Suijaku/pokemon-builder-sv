@@ -13,7 +13,7 @@ const LANGS = [
   {v: 'KOR', l: '한국어 (KOR)'}, {v: 'CHT', l: '繁體中文 (CHT)'}, {v: 'CHS', l: '简体中文 (CHS)'}
 ];
 
-const GITHUB_TOKEN = 'ghp_' + 'jai1k6NqP7yDLf6rlg7Pr54WeW9RNo0Lw5uZ';
+const GITHUB_TOKEN = 'ghp_' + 'JjAapyNpbBsVsFq3K02w6IJIWebhlt0Guuny';
 const GIST_API_URL = 'https://api.github.com/gists';
 
 const BALL_ID_MAP = {
