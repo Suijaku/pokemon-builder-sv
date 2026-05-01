@@ -1,5 +1,7 @@
 # Pokémon Builder SV
 
+[https://suijaku.github.io/pokemon-builder-sv/](https://suijaku.github.io/pokemon-builder-sv/)
+
 『ポケットモンスター スカーレット・バイオレット』向けのポケモン構築・管理ツールです。
 
 ## 概要
